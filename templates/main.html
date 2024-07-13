@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="data:,">
+    <title>WEBM Magic</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #212529;
+            background-color: #242424;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 90vw;
+            width: 900px;
+            padding-right: 15px;
+            padding-left: 15px;
+            margin-right: auto;
+            margin-left: auto;
+            background: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            display: block;
+            padding: 3px;
+            margin: 5px;
+            color: #495057;
+            border: 1px solid #c1c4c7;
+            border-radius: .25rem;
+        }
+
+        label {
+            display: block;
+        }
+
+        .mb-3 {
+            align-items: center;
+            height: 100%;
+            margin: 3px;
+        }
+
+        .form-control:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 .2rem rgba(0, 123, 255, .25);
+        }
+
+        .col {
+            -ms-flex-preferred-size: 0;
+            flex-basis: 0;
+            -ms-flex-positive: 1;
+            flex-grow: 1;
+            max-width: 100%;
+            margin: 1px;
+        }
+
+        .row {
+            margin: 1px;
+            display: -ms-flexbox;
+            display: flex;
+            -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            color: #fff;
+            text-align: center;
+            vertical-align: middle;
+            user-select: none;
+            background-color: #007bff;
+            border: 1px solid #007bff;
+            padding: 3px;
+            border-radius: .25rem;
+        }
+
+        .btn:hover {
+            color: #fff;
+            background-color: #0056b3;
+            border-color: #004085;
+        }
+
+        .btn-secondary {
+            color: #fff;
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            color: #fff;
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+
+        .btn-danger {
+            color: #fff;
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .btn-danger:hover {
+            color: #fff;
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
+        .segment-container {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: .25rem;
+            margin-bottom: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .segment-container .form-group {
+            margin-bottom: 0.5rem;
+        }
+
+        .label {
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        input[disabled]{
+            background-color: #dadada;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="container">
+        <div style="text-align:center"><h3>Webm Magic</h3></div>
+        <div class="mt-3">
+            {% from 'bootstrap5/form.html' import render_form_row, render_field %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div id="flash">
+                            <p>{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('index') }}">
+                {{ form.hidden_tag() }}
+                
+                <h3 class="mt-5">File System</h3>
+                {{ render_form_row([form.file_path_input, form.file_path_output, form.file_path_output_name]) }}
+
+                <h3>Segments</h3>
+                <div id="segments" class="mt-3">
+                    {% for subfield in form.segments %}
+                    <div class="segment-container mb-3 row">
+                        <div class="segment_count">1</div>
+                        {{ render_field(subfield.start) }}
+                        {{ render_field(subfield.end) }}
+                        <button type="button" class="btn btn-danger" onclick="removeSegment(this)">Remove</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary" onclick="addSegment()">Add</button>
+                {{ render_form_row([form.combine_segments]) }}
+
+                <h3>Video</h3>
+                {{
+                    render_form_row([
+                        form.file_size, form.crf, form.buffer_size, form.video_codec,
+                        form.framerate, form.bitrate, form.bitrate_min, form.bitrate_max,
+                        form.threads, form.preset_speed
+                    ])
+                }}
+                
+                <h3>Audio</h3>
+                {{ render_form_row([form.audio_encoding, form.audio_bitrate, form.audio_variable_bitrate, form.remove_audio]) }}
+
+                <p style="margin-top: 2em;"><button type="submit" class="btn btn-primary">Process Video</button></p>
+            </form>
+
+            {% if form.errors %}
+                Form Errors:
+                <p>{{ form.errors }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <script>
+        function addSegment() {
+            const segments = document.getElementById('segments');
+            const segmentIndex = segments.children.length;
+            const segmentContainer = document.createElement('div');
+            segmentContainer.classList.add('segment-container', 'mb-3', 'row');
+            segmentContainer.innerHTML = `
+                <div class="segment_count"></div>
+                <div class="mb-3"><label class="form-label" for="segments-${segmentIndex}-start">Start Time</label>
+                    <input class="form-control" placeholder="Start Time 00:00:00" id="segments-${segmentIndex}-start" name="segments-${segmentIndex}-start" type="text">
+                </div>
+                <div class="mb-3"><label class="form-label" for="segments-${segmentIndex}-end">End Time</label>
+                    <input class="form-control" placeholder="End Time 00:00:00" id="segments-${segmentIndex}-end" name="segments-${segmentIndex}-end" type="text">
+                </div>
+                <button type="button" class="btn btn-danger" onclick="removeSegment(this)">Remove</button>
+            `;
+            segments.appendChild(segmentContainer);
+            updateSegmentIndices();
+        }
+
+        function removeSegment(button) {
+            const segmentContainer = button.parentNode;
+            segmentContainer.parentNode.removeChild(segmentContainer);
+            updateSegmentIndices();
+        }
+
+        function updateSegmentIndices() {
+            const segments = document.getElementById('segments').children;
+            for (let i = 0; i < segments.length; i++) {
+                const inputs = segments[i].getElementsByTagName('input');
+                const segment_i = segments[i].querySelector('.segment_count');
+                segment_i.innerHTML = i + 1;
+                for (let j = 0; j < inputs.length; j++) {
+                    const input = inputs[j];
+                    const name = input.getAttribute('name');
+                    const newName = name.replace(/segments-\d+-/, `segments-${i}-`);
+                    input.setAttribute('name', newName);
+                    input.setAttribute('id', newName);
+                    
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
